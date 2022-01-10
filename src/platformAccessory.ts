@@ -1,8 +1,6 @@
-import fetch from 'node-fetch';
-import { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
+import { PlatformAccessory, CharacteristicValue } from 'homebridge';
 
 import { RadiantCoolingPlatformPlugin } from './platform';
-import { URLSearchParams } from 'url';
 
 /**
  * Platform Accessory
