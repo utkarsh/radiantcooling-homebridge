@@ -1,15 +1,20 @@
 {
-  "pluginAlias": "ExampleHomebridgePlugin",
+  "pluginAlias": "RadiantCoolingPlugin",
   "pluginType": "platform",
   "singular": true,
   "schema": {
     "type": "object",
     "properties": {
-      "name": {
-        "title": "Name",
+      "bearer": {
+        "title": "Bearer",
         "type": "string",
-        "required": true,
-        "default": "Example Dynamic Platform"
+        "required": true
+      },
+      "messanaHostNameOrIP": {
+        "title": "MessanaHostNameOrIP",
+        "type": "string",
+        "required": false,
+        "default": "messana"
       }
     }
   }

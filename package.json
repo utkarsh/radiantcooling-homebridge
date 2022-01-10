@@ -1,16 +1,15 @@
 {
-  "private": true,
-  "displayName": "Plugin Name",
-  "name": "homebridge-plugin-name",
+  "displayName": "Radiant Cooling",
+  "name": "homebridge-radiant-cooling",
   "version": "1.0.0",
-  "description": "A short description about what your plugin does.",
+  "description": "Adds accessories for Messana radiant cooling",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git://github.com/USERNAME/GITHUB_PROJECT_NAME.git"
+    "url": "https://github.com/utkarsh/radiantcooling-homebridge.git"
   },
   "bugs": {
-    "url": "https://github.com/USERNAME/GITHUB_PROJECT_NAME/issues"
+    "url": "https://github.com/utkarsh/radiantcooling-homebridge.git/issues"
   },
   "engines": {
     "node": ">=14.18.1",
@@ -36,6 +35,7 @@
     "nodemon": "^2.0.13",
     "rimraf": "^3.0.2",
     "ts-node": "^10.3.0",
-    "typescript": "^4.4.4"
+    "typescript": "^4.4.4",
+    "node-fetch": "^2.0"
   }
 }

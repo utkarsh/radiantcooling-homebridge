@@ -1,26 +1,35 @@
+import fetch from 'node-fetch';
 import { API, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformConfig, Service, Characteristic } from 'homebridge';
 
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings';
-import { ExamplePlatformAccessory } from './platformAccessory';
+import { RadiantCoolingZoneAccessory } from './platformAccessory';
+import { URLSearchParams } from 'url';
 
 /**
  * HomebridgePlatform
  * This class is the main constructor for your plugin, this is where you should
  * parse the user config and discover/register accessories with Homebridge.
  */
-export class ExampleHomebridgePlatform implements DynamicPlatformPlugin {
+export class RadiantCoolingPlatformPlugin implements DynamicPlatformPlugin {
   public readonly Service: typeof Service = this.api.hap.Service;
   public readonly Characteristic: typeof Characteristic = this.api.hap.Characteristic;
 
   // this is used to track restored cached accessories
   public readonly accessories: PlatformAccessory[] = [];
+  private messanaRequestHeaders;
 
   constructor(
     public readonly log: Logger,
     public readonly config: PlatformConfig,
     public readonly api: API,
   ) {
-    this.log.debug('Finished initializing platform:', this.config.name);
+    if (this.config.bearer === undefined) {
+      this.log.error('Plugin could not be initialized. Enter Bearer for Messana api in plugin configuration');
+      return;
+    }
+    this.messanaRequestHeaders = {
+      'authorization': 'Bearer ' + this.config.bearer,
+    };
 
     // When this event is fired it means Homebridge has restored all cached accessories from disk.
     // Dynamic Platform plugins should only register new accessories after this event was fired,
@@ -30,6 +39,21 @@ export class ExampleHomebridgePlatform implements DynamicPlatformPlugin {
       log.debug('Executed didFinishLaunching callback');
       // run the method to discover / register your devices as accessories
       this.discoverDevices();
+    });
+  }
+
+  messanaApiFetch(urlPath: string) {
+    return fetch('http://'+ this.config.messanaHostNameOrIP + '/api/' + urlPath, {
+      'headers': this.messanaRequestHeaders,
+    },
+    ).then(resp => resp.json());
+  }
+
+  messanaApiPut(urlPath: string, params) {
+    fetch('http://'+ this.config.messanaHostNameOrIP + '/api/' + urlPath, {
+      method: 'PUT',
+      'headers': this.messanaRequestHeaders,
+      body: new URLSearchParams(params),
     });
   }
 
@@ -50,67 +74,48 @@ export class ExampleHomebridgePlatform implements DynamicPlatformPlugin {
    * must not be registered again to prevent "duplicate UUID" errors.
    */
   discoverDevices() {
+    this.messanaApiFetch('system/zoneCount')
+      .then(json => {
+        const numZones = json['count'];
+        this.log.info('Found %s zones', numZones);
+        for (let i = 0; i < numZones; i++) {
+          // generate a unique id for the accessory this should be generated from
+          // something globally unique, but constant, for example, the device serial
+          // number or MAC address
+          const uuid = this.api.hap.uuid.generate('radiantcooling-' + i);
+          this.log.debug('uuid: ', uuid);
 
-    // EXAMPLE ONLY
-    // A real plugin you would discover accessories from the local network, cloud services
-    // or a user-defined array in the platform config.
-    const exampleDevices = [
-      {
-        exampleUniqueId: 'ABCD',
-        exampleDisplayName: 'Bedroom',
-      },
-      {
-        exampleUniqueId: 'EFGH',
-        exampleDisplayName: 'Kitchen',
-      },
-    ];
+          // see if an accessory with the same uuid has already been registered and restored from
+          // the cached devices we stored in the `configureAccessory` method above
+          const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid);
 
-    // loop over the discovered devices and register each one if it has not already been registered
-    for (const device of exampleDevices) {
+          if (existingAccessory) {
+            // the accessory already exists
+            this.log.info('Restoring existing accessory from cache:', existingAccessory.displayName);
 
-      // generate a unique id for the accessory this should be generated from
-      // something globally unique, but constant, for example, the device serial
-      // number or MAC address
-      const uuid = this.api.hap.uuid.generate(device.exampleUniqueId);
+            // create the accessory handler for the restored accessory
+            // this is imported from `platformAccessory.ts`
+            // new RadiantCoolingZoneAccessory(this, existingAccessory);
 
-      // see if an accessory with the same uuid has already been registered and restored from
-      // the cached devices we stored in the `configureAccessory` method above
-      const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid);
-
-      if (existingAccessory) {
-        // the accessory already exists
-        this.log.info('Restoring existing accessory from cache:', existingAccessory.displayName);
-
-        // if you need to update the accessory.context then you should run `api.updatePlatformAccessories`. eg.:
-        // existingAccessory.context.device = device;
-        // this.api.updatePlatformAccessories([existingAccessory]);
-
-        // create the accessory handler for the restored accessory
-        // this is imported from `platformAccessory.ts`
-        new ExamplePlatformAccessory(this, existingAccessory);
-
-        // it is possible to remove platform accessories at any time using `api.unregisterPlatformAccessories`, eg.:
-        // remove platform accessories when no longer present
-        // this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [existingAccessory]);
-        // this.log.info('Removing existing accessory from cache:', existingAccessory.displayName);
-      } else {
-        // the accessory does not yet exist, so we need to create it
-        this.log.info('Adding new accessory:', device.exampleDisplayName);
-
-        // create a new accessory
-        const accessory = new this.api.platformAccessory(device.exampleDisplayName, uuid);
-
-        // store a copy of the device object in the `accessory.context`
-        // the `context` property can be used to store any data about the accessory you may need
-        accessory.context.device = device;
-
-        // create the accessory handler for the newly create accessory
-        // this is imported from `platformAccessory.ts`
-        new ExamplePlatformAccessory(this, accessory);
-
-        // link the accessory to your platform
-        this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
-      }
-    }
+            // it is possible to remove platform accessories at any time using `api.unregisterPlatformAccessories`, eg.:
+            // remove platform accessories when no longer present
+            this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [existingAccessory]);
+            this.log.info('Removing existing accessory from cache:', existingAccessory.displayName);
+          }
+          // the accessory does not yet exist, so we need to create it
+          this.messanaApiFetch('zone/name/' + i)
+            .then(json => {
+              const name = json['name'];
+              this.log.info('Adding new accessory:', name);
+              // create a new accessory
+              const accessory = new this.api.platformAccessory(name, uuid);
+              // create the accessory handler for the newly create accessory
+              // this is imported from `platformAccessory.ts`
+              new RadiantCoolingZoneAccessory(this, accessory, i);
+              // link the accessory to your platform
+              this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
+            });
+        }
+      });
   }
 }
